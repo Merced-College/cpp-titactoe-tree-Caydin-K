@@ -1,15 +1,17 @@
 #include <iostream>
 #include <vector>
 #include <limits>
+#include <cstdlib>
+#include <ctime>
 using namespace std;
 
-const char HUMAN = 'X';
-const char COMPUTER = 'O';
+char HUMAN;
+char COMPUTER;
 const char EMPTY = ' ';
 
 class GameState {
 private:
-    vector<char> board; // 9 cells for Tic-Tac-Toe
+    vector<char> board;
 
 public:
     GameState() : board(9, EMPTY) {}
@@ -70,17 +72,18 @@ public:
 
 class TicTacToeTree {
 public:
-    int minimax(const GameState& state, bool isMaximizing) {
+    // Minimax with depth limit
+    int minimax(const GameState& state, bool isMaximizing, int depth = 0, int maxDepth = 6) {
         char winner = state.checkWinner();
-        if (winner == COMPUTER) return 1;
-        if (winner == HUMAN) return -1;
-        if (state.isFull()) return 0;
+        if (winner == COMPUTER) return 10 - depth;
+        if (winner == HUMAN) return depth - 10;
+        if (state.isFull() || depth >= maxDepth) return 0;
 
         if (isMaximizing) {
             int bestScore = numeric_limits<int>::min();
             for (int move : state.getAvailableMoves()) {
                 GameState newState = state.makeMove(move, COMPUTER);
-                int score = minimax(newState, false);
+                int score = minimax(newState, false, depth + 1, maxDepth);
                 bestScore = max(bestScore, score);
             }
             return bestScore;
@@ -88,33 +91,63 @@ public:
             int bestScore = numeric_limits<int>::max();
             for (int move : state.getAvailableMoves()) {
                 GameState newState = state.makeMove(move, HUMAN);
-                int score = minimax(newState, true);
+                int score = minimax(newState, true, depth + 1, maxDepth);
                 bestScore = min(bestScore, score);
             }
             return bestScore;
         }
     }
 
+    // Choose among best moves randomly if scores are tied + show scores
     int findBestMove(const GameState& state) {
         int bestScore = numeric_limits<int>::min();
-        int bestMove = -1;
+        vector<int> bestMoves;
+        cout << "\nAI is thinking...\n";
 
         for (int move : state.getAvailableMoves()) {
             GameState newState = state.makeMove(move, COMPUTER);
-            int score = minimax(newState, false);
+            int score = minimax(newState, false, 1);
+            cout << "Move " << move << " has score: " << score << endl;
+
             if (score > bestScore) {
                 bestScore = score;
-                bestMove = move;
+                bestMoves = {move};
+            } else if (score == bestScore) {
+                bestMoves.push_back(move);
             }
         }
-        return bestMove;
+
+        if (!bestMoves.empty()) {
+            int randomIndex = rand() % bestMoves.size();
+            return bestMoves[randomIndex];
+        }
+
+        return -1;
     }
 };
 
+void choosePlayerSymbol() {
+    char choice;
+    do {
+        cout << "Choose your symbol (X or O): ";
+        cin >> choice;
+        choice = toupper(choice);
+    } while (choice != 'X' && choice != 'O');
+
+    HUMAN = choice;
+    COMPUTER = (HUMAN == 'X') ? 'O' : 'X';
+    cout << "You are '" << HUMAN << "'. Computer is '" << COMPUTER << "'.\n\n";
+}
+
 void playGame() {
+    srand(time(0)); // Seed randomness
+    choosePlayerSymbol();
+
     GameState state;
     TicTacToeTree ai;
-    char currentPlayer = HUMAN;
+
+    // Determine who goes first based on player symbol
+    char currentPlayer = (HUMAN == 'X') ? HUMAN : COMPUTER;
 
     while (!state.isGameOver()) {
         state.printBoard();
@@ -131,7 +164,7 @@ void playGame() {
         } else {
             int move = ai.findBestMove(state);
             state = state.makeMove(move, COMPUTER);
-            cout << "Computer plays at position " << move << endl;
+            cout << "Computer plays at position " << move << "\n\n";
             currentPlayer = HUMAN;
         }
     }
